@@ -24,7 +24,8 @@ jobs:
           # Every build gets its own version (2.9.1000+run), so Feather's update check sees it as new.
           V="2.9.$((1000 + GITHUB_RUN_NUMBER))"
           echo "V=$V" >> "$GITHUB_ENV"
-          agvtool new-marketing-version "$V"
+          sed -i "" -E "s/^FEATHER_PROJECT_VERSION *=.*/FEATHER_PROJECT_VERSION = $V/" Feather.xcconfig
+          grep FEATHER_PROJECT_VERSION Feather.xcconfig
           agvtool new-version -all "$GITHUB_RUN_NUMBER"
           make iphoneos
           shasum -a 256 packages/Feather.ipa | tee packages/SHA256SUMS
