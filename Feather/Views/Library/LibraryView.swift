@@ -229,6 +229,13 @@ struct LibraryView: View {
 					_selectedInstallAppPresenting = AnyApp(base: latest)
 				}
 			}
+			// Look for updates whenever the library opens, and again once a one-tap update is done.
+			.task {
+				await _checkForUpdates()
+			}
+			.onReceive(NotificationCenter.default.publisher(for: Notification.Name("Feather.autoUpdateFinished"))) { _ in
+				Task { await _checkForUpdates() }
+			}
 			.onChange(of: _editMode) { mode in
 				if mode == .inactive {
 					_selectedAppUUIDs.removeAll()

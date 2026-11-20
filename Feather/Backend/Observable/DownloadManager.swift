@@ -142,6 +142,10 @@ class DownloadManager: NSObject, ObservableObject {
 	
 	func cancelDownload(_ download: Download) {
 		download.task?.cancel()
+		let id = download.id
+		DispatchQueue.main.async {
+			MainActor.assumeIsolated { AutoUpdater.shared.downloadCancelled(id: id) }
+		}
 		
 		if let index = downloads.firstIndex(where: { $0.id == download.id }) {
 			downloads.remove(at: index)
@@ -183,6 +187,9 @@ extension DownloadManager: URLSessionDownloadDelegate {
 			}
 			
 			DispatchQueue.main.async {
+				MainActor.assumeIsolated {
+					AutoUpdater.shared.downloadFinished(id: dl.id, error: err)
+				}
 				if let index = DownloadManager.shared.getDownloadIndex(by: dl.id) {
 					DownloadManager.shared.downloads.remove(at: index)
 					
@@ -217,6 +224,10 @@ extension DownloadManager: URLSessionDownloadDelegate {
 			try handlePachageFile(url: destinationURL, dl: download)
 		} catch {
 			print("Error handling downloaded file: \(error.localizedDescription)")
+			let id = download.id
+			DispatchQueue.main.async {
+				MainActor.assumeIsolated { AutoUpdater.shared.downloadFinished(id: id, error: error) }
+			}
 		}
 	}
 	
@@ -248,6 +259,7 @@ extension DownloadManager: URLSessionDownloadDelegate {
 		}
 		
 		DispatchQueue.main.async {
+			MainActor.assumeIsolated { AutoUpdater.shared.downloadCancelled(id: download.id) }
 			if let index = self.getDownloadIndex(by: download.id) {
 				self.downloads.remove(at: index)
 			}

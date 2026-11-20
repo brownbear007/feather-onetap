@@ -1,0 +1,30 @@
+name: Build
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  ipa:
+    runs-on: macos-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: 'true'
+      - name: Xcode
+        run: |
+          ls -d /Applications/Xcode*.app
+          X=$(ls -d /Applications/Xcode_26*.app 2>/dev/null | sort -V | tail -1)
+          sudo xcode-select -s "$X"
+          xcodebuild -version
+      - name: Build
+        run: |
+          agvtool new-version -all $(git rev-parse --short HEAD)
+          make iphoneos
+          shasum -a 256 packages/Feather.ipa | tee packages/SHA256SUMS
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Feather
+          path: packages/

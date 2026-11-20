@@ -296,6 +296,8 @@ extension SigningView {
 					actions: [ok]
 				)
 			} else {
+				// One-tap updates sign the next version the same way.
+				AutoUpdater.remember(_temporaryOptions, for: app.identifier)
 				if
 					_temporaryOptions.post_deleteAppAfterSigned,
 					!app.isSigned

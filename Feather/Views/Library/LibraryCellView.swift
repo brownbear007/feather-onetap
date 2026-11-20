@@ -14,6 +14,7 @@ struct LibraryCellView: View {
 	@Environment(\.horizontalSizeClass) private var horizontalSizeClass
 	@Environment(\.editMode) private var editMode
 	@ObservedObject private var updateManager = UpdateManager.shared
+	@ObservedObject private var autoUpdater = AutoUpdater.shared
 	@State private var _signedUpdateConfirmation: AppUpdate?
 	@State private var _isSignedUpdateConfirmationPresented = false
 
@@ -107,11 +108,16 @@ struct LibraryCellView: View {
 			isPresented: $_isSignedUpdateConfirmationPresented,
 			titleVisibility: .visible
 		) {
+			if let update = _signedUpdateConfirmation {
+				Button(.localized("Update & Install"), systemImage: "arrow.down.app") {
+					autoUpdater.start(update, replacing: app)
+				}
+			}
 			Button(.localized("Install Current Version"), systemImage: "square.and.arrow.down") {
 				selectedInstallAppPresenting = AnyApp(base: app)
 			}
 			if let update = _signedUpdateConfirmation {
-				Button(.localized("Download Update"), systemImage: "arrow.down.circle") {
+				Button(.localized("Download Only"), systemImage: "arrow.down.circle") {
 					_startUpdateDownload(update)
 				}
 			}
@@ -209,14 +215,22 @@ extension LibraryCellView {
 	@ViewBuilder
 	private func _buttonActions(for app: AppInfoPresentable) -> some View {
 		Group {
-			if let update = updateManager.update(for: app) {
+			if let uuid = app.uuid, let status = autoUpdater.working[uuid] {
+				HStack(spacing: 6) {
+					ProgressView()
+					Text(status)
+						.font(.footnote)
+						.foregroundStyle(.secondary)
+				}
+			} else if let update = updateManager.update(for: app) {
 				if app.isSigned {
+					// One tap: download, sign the same way as last time, install, remove the old copies.
+					// The other choices are in the context menu's Update.
 					Button {
-						_signedUpdateConfirmation = update
-						_isSignedUpdateConfirmationPresented = true
+						autoUpdater.start(update, replacing: app)
 					} label: {
 						FRExpirationPillView(
-							title: .localized("Install"),
+							title: .localized("Update"),
 							revoked: certRevoked,
 							expiration: certInfo
 						)
