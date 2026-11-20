@@ -229,10 +229,11 @@ extension LibraryCellView {
 					Button {
 						autoUpdater.start(update, replacing: app)
 					} label: {
+						// The pill shows days left whenever it has an expiry; an update says Update instead.
 						FRExpirationPillView(
 							title: .localized("Update"),
 							revoked: certRevoked,
-							expiration: certInfo
+							expiration: nil
 						)
 					}
 				} else {
