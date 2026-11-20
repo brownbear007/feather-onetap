@@ -1,0 +1,56 @@
+name: Sync upstream
+# Once a day: merge the original Feather (khcrysalis/Feather, main) into this fork. A clean merge is
+# pushed and a build started, which publishes a release that the Feather source picks up. A merge
+# that clashes with this fork's changes is not pushed: an issue says what clashed.
+on:
+  schedule:
+    - cron: '17 6 * * *'
+  workflow_dispatch:
+permissions:
+  contents: write
+  actions: write
+  issues: write
+concurrency: sync-upstream
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Merge
+        id: merge
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -uo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git remote add upstream https://github.com/khcrysalis/Feather.git
+          git fetch --quiet upstream main
+          NEW=$(git rev-list --count HEAD..upstream/main)
+          echo "Upstream commits not merged yet: $NEW"
+          if [ "$NEW" = "0" ]; then echo "result=none" >> "$GITHUB_OUTPUT"; exit 0; fi
+          if ! git merge --no-edit upstream/main; then
+            # The fork deleted upstream's release workflows; their edits to them are not wanted.
+            for f in .github/workflows/release.yml .github/workflows/update_repo.yml; do
+              git ls-files -u -- "$f" | grep -q . && git rm -q -- "$f"
+            done
+            LEFT=$(git diff --name-only --diff-filter=U)
+            if [ -n "$LEFT" ]; then
+              git merge --abort
+              BODY=$(printf 'The daily merge of khcrysalis/Feather main (%s new commits, up to %s) clashes with this fork in:\n\n%s\n\nNothing was pushed. Merge it by hand, then run Build.' "$NEW" "$(git rev-parse --short upstream/main)" "$(echo "$LEFT" | sed 's/^/- /')")
+              gh issue create -R "$GITHUB_REPOSITORY" --title "Upstream merge needs a hand ($(date -u +%F))" --body "$BODY"
+              echo "result=conflict" >> "$GITHUB_OUTPUT"; exit 1
+            fi
+            git commit --no-edit
+          fi
+          git push origin HEAD:main
+          echo "result=merged" >> "$GITHUB_OUTPUT"
+      - name: Build
+        if: steps.merge.outputs.result == 'merged'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        # A push made with this job's token does not start other workflows, so start Build here.
+        run: gh workflow run build.yml -R "$GITHUB_REPOSITORY" --ref main

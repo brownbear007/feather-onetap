@@ -3,6 +3,7 @@ on:
   workflow_dispatch:
   push:
     branches: [main]
+    paths-ignore: ['.github/workflows/sync-upstream.yml']
 permissions:
   contents: write
 jobs:
