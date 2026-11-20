@@ -4,7 +4,7 @@ on:
   push:
     branches: [main]
 permissions:
-  contents: read
+  contents: write
 jobs:
   ipa:
     runs-on: macos-latest
@@ -21,10 +21,20 @@ jobs:
           xcodebuild -version
       - name: Build
         run: |
-          agvtool new-version -all $(git rev-parse --short HEAD)
+          # Every build gets its own version (2.9.1000+run), so Feather's update check sees it as new.
+          V="2.9.$((1000 + GITHUB_RUN_NUMBER))"
+          echo "V=$V" >> "$GITHUB_ENV"
+          agvtool new-marketing-version "$V"
+          agvtool new-version -all "$GITHUB_RUN_NUMBER"
           make iphoneos
           shasum -a 256 packages/Feather.ipa | tee packages/SHA256SUMS
       - uses: actions/upload-artifact@v4
         with:
           name: Feather
           path: packages/
+      - name: Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          SHA=$(shasum -a 256 packages/Feather.ipa | cut -d' ' -f1)
+          gh release create "feather-$V" packages/Feather.ipa -R "$GITHUB_REPOSITORY"             --title "Feather $V" --notes "version=$V build=$GITHUB_RUN_NUMBER sha256=$SHA run=$GITHUB_RUN_ID"
