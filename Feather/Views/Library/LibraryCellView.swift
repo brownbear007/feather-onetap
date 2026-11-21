@@ -216,12 +216,9 @@ extension LibraryCellView {
 	private func _buttonActions(for app: AppInfoPresentable) -> some View {
 		Group {
 			if let uuid = app.uuid, let status = autoUpdater.working[uuid] {
-				HStack(spacing: 6) {
-					ProgressView()
-					Text(status)
-						.font(.footnote)
-						.foregroundStyle(.secondary)
-				}
+				_updating(status)
+			} else if let uuid = app.uuid, autoUpdater.installing.contains(uuid) {
+				_updating(.localized("Installing"))
 			} else if app.isSigned, let uuid = app.uuid, autoUpdater.pendingInstall.contains(uuid) {
 				// Signed by a one-tap update, but the install sheet was closed before iOS installed it.
 				Button {
@@ -281,6 +278,17 @@ extension LibraryCellView {
 			}
 		}
 		.buttonStyle(.borderless)
+	}
+	
+	/// An update under way: "Updating…" and the step it is on, never the Update button.
+	private func _updating(_ step: String) -> some View {
+		HStack(spacing: 6) {
+			ProgressView()
+			VStack(alignment: .leading, spacing: 0) {
+				Text(.localized("Updating…")).font(.footnote.bold())
+				Text(step).font(.caption2).foregroundStyle(.secondary)
+			}
+		}
 	}
 	
 	private func _startUpdateDownload(_ update: AppUpdate) {

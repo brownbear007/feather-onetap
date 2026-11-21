@@ -98,6 +98,8 @@ struct InstallPreviewView: View {
 			}
 		}
 		.onAppear(perform: _install)
+		.onAppear { AutoUpdater.shared.installSheet(app, shown: true) }
+		.onDisappear { AutoUpdater.shared.installSheet(app, shown: false) }
 		
 		#if !targetEnvironment(macCatalyst)
 		.onAppear {

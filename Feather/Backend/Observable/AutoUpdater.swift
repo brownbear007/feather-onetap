@@ -39,6 +39,14 @@ final class AutoUpdater: ObservableObject {
 		UserDefaults.standard.set(Array(pendingInstall), forKey: "feather.autoUpdate.pendingInstall")
 	}
 	
+	/// Apps whose install sheet is open: their row says Updating, not Update.
+	@Published private(set) var installing: Set<String> = []
+	
+	func installSheet(_ app: AppInfoPresentable, shown: Bool) {
+		guard let uuid = app.uuid, pendingInstall.contains(uuid) || installing.contains(uuid) else { return }
+		if shown { installing.insert(uuid) } else { installing.remove(uuid) }
+	}
+	
 	/// iOS has begun installing (or finished installing) this app: it no longer needs an Update button.
 	func installStarted(_ app: AppInfoPresentable) {
 		guard let uuid = app.uuid, pendingInstall.contains(uuid) else { return }
