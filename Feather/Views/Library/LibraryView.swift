@@ -22,6 +22,7 @@ struct LibraryView: View {
 	@State private var _alertDownloadString: String = "" // for _isDownloadingPresenting
 	@State private var _updateCheckRotation = 0.0
 	@State private var _isUpdateCheckCompleteVisible = false
+	@State private var _isResignAllPresenting = false
 	
 	// MARK: Selection State
 	@State private var _selectedAppUUIDs: Set<String> = []
@@ -45,6 +46,11 @@ struct LibraryView: View {
 		filteredAndSortedApps(from: _signedApps)
 	}
 	
+	/// Signed apps whose certificate Apple has revoked.
+	private var _revokedSignedCount: Int {
+		_signedApps.filter { $0.certificate?.revoked == true }.count
+	}
+
 	private var _filteredImportedApps: [Imported] {
 		filteredAndSortedApps(from: _importedApps)
 	}
@@ -72,6 +78,26 @@ struct LibraryView: View {
 	var body: some View {
 		NBNavigationView(.localized("Library")) {
 			NBListAdaptable {
+				// Local patch: a revoked certificate is one tap from being swapped out.
+				if _revokedSignedCount > 0 {
+					Section {
+						Button {
+							_isResignAllPresenting = true
+						} label: {
+							HStack(spacing: 12) {
+								Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.red).font(.title3)
+								VStack(alignment: .leading, spacing: 2) {
+									Text(.localized("Certificate Revoked")).font(.headline)
+									Text(.localized("\(_revokedSignedCount) app(s) won't open. Re-sign them with another certificate."))
+										.font(.subheadline).foregroundStyle(.secondary)
+								}
+								Spacer(minLength: 0)
+								Image(systemName: "chevron.right").foregroundStyle(.tertiary)
+							}
+						}
+						.buttonStyle(.plain)
+					}
+				}
 				if
 					!_filteredSignedApps.isEmpty,
 					_selectedScope == .all || _selectedScope == .signed
@@ -174,6 +200,16 @@ struct LibraryView: View {
 						.accessibilityLabel(.localized("Check for Updates"))
 					}
 					
+					ToolbarItem(placement: .topBarTrailing) {
+						Button {
+							_isResignAllPresenting = true
+						} label: {
+							Image(systemName: "signature")
+						}
+						.disabled(_signedApps.isEmpty)
+						.accessibilityLabel(.localized("Re-sign All"))
+					}
+
 					NBToolbarMenu(
 						systemImage: "plus",
 						style: .icon,
@@ -184,6 +220,9 @@ struct LibraryView: View {
 				}
 			}
 			.environment(\.editMode, $_editMode)
+			.sheet(isPresented: $_isResignAllPresenting) {
+				ResignAllView()
+			}
 			.sheet(item: $_selectedInfoAppPresenting) { app in
 				LibraryInfoView(app: app.base)
 			}

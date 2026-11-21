@@ -225,7 +225,7 @@ extension LibraryCellView {
 					selectedInstallAppPresenting = AnyApp(base: app)
 				} label: {
 					FRExpirationPillView(
-						title: .localized("Update"),
+						title: autoUpdater.resigned.contains(uuid) ? .localized("Install") : .localized("Update"),
 						revoked: certRevoked,
 						expiration: nil
 					)

@@ -51,6 +51,17 @@ final class AutoUpdater: ObservableObject {
 	func installStarted(_ app: AppInfoPresentable) {
 		guard let uuid = app.uuid, pendingInstall.contains(uuid) else { return }
 		pendingInstall.remove(uuid)
+		resigned.remove(uuid)
+		_savePendingInstall()
+	}
+
+	/// Local patch: re-signed by Re-sign All, waiting to be installed: its row says Install.
+	@Published private(set) var resigned: Set<String> = []
+
+	func markReadyToInstall(_ app: Signed) {
+		guard let uuid = app.uuid else { return }
+		pendingInstall.insert(uuid)
+		resigned.insert(uuid)
 		_savePendingInstall()
 	}
 
@@ -70,7 +81,7 @@ final class AutoUpdater: ObservableObject {
 			localUUID: update.localUUID,
 			oldIdentifier: app.identifier,
 			sourceIdentifier: update.bundleIdentifier,
-			certificate: Storage.shared.getCertificate(from: app) ?? Self._selectedCertificate(),
+			certificate: BatchResigner.rememberedCertificate(for: app.identifier) ?? Storage.shared.getCertificate(from: app) ?? Self._selectedCertificate(),
 			started: Date()
 		)
 		// Already downloaded (Download Only, or a signing that failed): sign that copy, no new download.
