@@ -222,6 +222,17 @@ extension LibraryCellView {
 						.font(.footnote)
 						.foregroundStyle(.secondary)
 				}
+			} else if app.isSigned, let uuid = app.uuid, autoUpdater.pendingInstall.contains(uuid) {
+				// Signed by a one-tap update, but the install sheet was closed before iOS installed it.
+				Button {
+					selectedInstallAppPresenting = AnyApp(base: app)
+				} label: {
+					FRExpirationPillView(
+						title: .localized("Update"),
+						revoked: certRevoked,
+						expiration: nil
+					)
+				}
 			} else if let update = updateManager.update(for: app) {
 				if app.isSigned {
 					// One tap: download, sign the same way as last time, install, remove the old copies.

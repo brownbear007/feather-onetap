@@ -57,6 +57,12 @@ struct InstallPreviewView: View {
 			SafariRepresentableView(url: installer.pageEndpoint).ignoresSafeArea()
 		}
 		.onReceive(viewModel.$status) { newStatus in
+			switch newStatus {
+			case .installing, .completed(.success):
+				AutoUpdater.shared.installStarted(app)
+			default:
+				break
+			}
 			if _installationMethod == 0 {
 				if case .ready = newStatus {
 					if _serverMethod == 0 {

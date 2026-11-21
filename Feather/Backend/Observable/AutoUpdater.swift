@@ -30,6 +30,21 @@ final class AutoUpdater: ObservableObject {
 	}
 
 	private var _pending: [String: Pending] = [:]
+	
+	/// Signed updates whose install has not started yet (the install sheet was closed first), by the
+	/// Signed copy's UUID. Their row keeps an Update button until iOS starts installing them.
+	@Published private(set) var pendingInstall: Set<String> = Set(UserDefaults.standard.stringArray(forKey: "feather.autoUpdate.pendingInstall") ?? [])
+	
+	private func _savePendingInstall() {
+		UserDefaults.standard.set(Array(pendingInstall), forKey: "feather.autoUpdate.pendingInstall")
+	}
+	
+	/// iOS has begun installing (or finished installing) this app: it no longer needs an Update button.
+	func installStarted(_ app: AppInfoPresentable) {
+		guard let uuid = app.uuid, pendingInstall.contains(uuid) else { return }
+		pendingInstall.remove(uuid)
+		_savePendingInstall()
+	}
 
 	private init() {}
 
@@ -50,6 +65,12 @@ final class AutoUpdater: ObservableObject {
 			certificate: Storage.shared.getCertificate(from: app) ?? Self._selectedCertificate(),
 			started: Date()
 		)
+		// Already downloaded (Download Only, or a signing that failed): sign that copy, no new download.
+		if let ready = _downloadedCopy(of: update, newerThan: app) {
+			let pending = _pending.removeValue(forKey: id)!
+			_sign(ready, pending)
+			return
+		}
 		working[update.localUUID] = .localized("Downloading")
 		_ = DownloadManager.shared.startDownload(
 			from: update.downloadURL,
@@ -148,6 +169,10 @@ final class AutoUpdater: ObservableObject {
 		}
 
 		working[pending.localUUID] = nil
+		if let uuid = newSigned.uuid {
+			pendingInstall.insert(uuid)
+			_savePendingInstall()
+		}
 		UINotificationFeedbackGenerator().notificationOccurred(.success)
 		DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
 			NotificationCenter.default.post(name: Notification.Name("Feather.installApp"), object: nil)
@@ -175,6 +200,15 @@ final class AutoUpdater: ObservableObject {
 		return (try? Storage.shared.context.fetch(request)) ?? []
 	}
 
+	/// An imported copy of this update, newer than the app being updated, waiting to be signed.
+	private func _downloadedCopy(of update: AppUpdate, newerThan app: AppInfoPresentable) -> Imported? {
+		let identifiers = Set([update.bundleIdentifier, app.identifier].compactMap { $0 })
+		let after = app.date ?? .distantPast
+		return _imported().first {
+			$0.uuid != app.uuid && identifiers.contains($0.identifier ?? "") && ($0.date ?? .distantPast) > after
+		}
+	}
+	
 	private func _newestImported(since date: Date, preferring identifier: String) -> Imported? {
 		let fresh = _imported().filter { ($0.date ?? .distantPast) >= date.addingTimeInterval(-1) }
 		return fresh.first { $0.identifier == identifier } ?? fresh.first
