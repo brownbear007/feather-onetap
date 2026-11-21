@@ -194,6 +194,13 @@ final class AutoUpdater: ObservableObject {
 		UIAlertController.showAlertWithOk(title: .localized("Update Failed"), message: message)
 	}
 
+	/// After any signing: keep only the newest signed copy of that app (local patch, owner's request).
+	func removeOlderSigned(identifier: String?) {
+		guard let identifier, !identifier.isEmpty else { return }
+		let same = _signed().filter { $0.identifier == identifier }   // newest first
+		for old in same.dropFirst() { Storage.shared.deleteApp(for: old) }
+	}
+	
 	// MARK: Library lookups
 
 	private func _signed() -> [Signed] {

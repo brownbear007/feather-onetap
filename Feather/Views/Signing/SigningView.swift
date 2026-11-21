@@ -298,6 +298,8 @@ extension SigningView {
 			} else {
 				// One-tap updates sign the next version the same way.
 				AutoUpdater.remember(_temporaryOptions, for: app.identifier)
+				// Only the newest signed copy of this app stays in the library.
+				AutoUpdater.shared.removeOlderSigned(identifier: _temporaryOptions.appIdentifier ?? app.identifier)
 				if
 					_temporaryOptions.post_deleteAppAfterSigned,
 					!app.isSigned
